@@ -1,0 +1,25 @@
+{
+  "name": "finbot",
+  "version": "1.0.0",
+  "description": "Telegram bot for personal finance management",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "telegraf": "^4.15.3",
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "finance"
+  ],
+  "author": "",
+  "license": "ISC"
+}
+

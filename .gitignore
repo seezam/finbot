@@ -1,5 +1,8 @@
-.venv/
 node_modules/
-firebase-debug.log
-*.local
 data.json
+.env
+*.log
+.DS_Store
+venv/
+__pycache__/
+.firebase/
