@@ -1,6 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 
-const BOT_TOKEN = 'REDACTED_TELEGRAM_BOT_TOKEN';
+const BOT_TOKEN = 'YOUR_BOT_TOKEN_HERE';
 const ALLOWED_USER_ID = 7186109787;
 
 const bot = new Telegraf(BOT_TOKEN);

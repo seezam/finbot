@@ -51,6 +51,6 @@ Railway автоматически создает переменную `RAILWAY_
 
 Или вручную:
 ```bash
-curl -X POST "https://api.telegram.org/botREDACTED_TELEGRAM_BOT_TOKEN/setWebhook?url=https://ВАШ-URL.railway.app/webhook"
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://ВАШ-URL.railway.app/webhook"
 ```
 

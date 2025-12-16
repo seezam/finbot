@@ -4,5 +4,6 @@ data.json
 *.log
 .DS_Store
 venv/
+.venv/
 __pycache__/
 .firebase/

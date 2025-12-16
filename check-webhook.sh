@@ -3,7 +3,17 @@
 # Скрипт для проверки и настройки webhook
 # Использование: ./check-webhook.sh <RAILWAY_URL>
 
-BOT_TOKEN="REDACTED_TELEGRAM_BOT_TOKEN"
+# Загружаем токен из переменной окружения или .env файла
+if [ -z "$BOT_TOKEN" ]; then
+  if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+  else
+    echo "ОШИБКА: BOT_TOKEN не установлен!"
+    echo "Установите переменную окружения: export BOT_TOKEN=your_token"
+    echo "Или создайте .env файл с BOT_TOKEN=your_token"
+    exit 1
+  fi
+fi
 
 if [ -z "$1" ]; then
   echo "Использование: ./check-webhook.sh <RAILWAY_URL>"

@@ -3,8 +3,19 @@
 # Скрипт для перезапуска webhook (если бот перестал отвечать)
 # Использование: ./restart-webhook.sh
 
-BOT_TOKEN="REDACTED_TELEGRAM_BOT_TOKEN"
-RAILWAY_URL="https://finbot-production-19c7.up.railway.app"
+# Загружаем токен из переменной окружения или .env файла
+if [ -z "$BOT_TOKEN" ]; then
+  if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+  else
+    echo "ОШИБКА: BOT_TOKEN не установлен!"
+    echo "Установите переменную окружения: export BOT_TOKEN=your_token"
+    echo "Или создайте .env файл с BOT_TOKEN=your_token"
+    exit 1
+  fi
+fi
+
+RAILWAY_URL="${RAILWAY_URL:-https://finbot-production-19c7.up.railway.app}"
 
 echo "Проверяю доступность сервера..."
 if ! curl -s "${RAILWAY_URL}/health" > /dev/null; then

@@ -13,7 +13,7 @@
 5. После успешного деплоя, перейдите в Settings → Variables и добавьте:
 
    ```
-   BOT_TOKEN = REDACTED_TELEGRAM_BOT_TOKEN
+   BOT_TOKEN = YOUR_BOT_TOKEN_HERE
    ALLOWED_USER_ID = 7186109787
    ```
 
@@ -42,14 +42,14 @@
 
 8. Настройте webhook для Telegram:
    ```bash
-   curl -X POST "https://api.telegram.org/botREDACTED_TELEGRAM_BOT_TOKEN/setWebhook?url=https://YOUR-RAILWAY-URL.railway.app/webhook"
+   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://YOUR-RAILWAY-URL.railway.app/webhook"
    ```
    
    Замените `YOUR-RAILWAY-URL` на ваш реальный URL от Railway
 
 9. Проверьте, что webhook установлен:
    ```bash
-   curl "https://api.telegram.org/botREDACTED_TELEGRAM_BOT_TOKEN/getWebhookInfo"
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
    ```
 
 10. Готово! Бот должен работать. Отправьте `/start` боту в Telegram.
