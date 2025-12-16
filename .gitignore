@@ -1,6 +1,7 @@
 node_modules/
 data.json
 .env
+SECURITY_STATUS.md
 *.log
 .DS_Store
 venv/
