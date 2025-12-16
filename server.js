@@ -6,8 +6,18 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-const BOT_TOKEN = process.env.BOT_TOKEN || 'REDACTED_TELEGRAM_BOT_TOKEN';
-const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID || '7186109787');
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID);
+
+if (!BOT_TOKEN) {
+  console.error('Ошибка: BOT_TOKEN не установлен в переменных окружения');
+  process.exit(1);
+}
+
+if (!ALLOWED_USER_ID) {
+  console.error('Ошибка: ALLOWED_USER_ID не установлен в переменных окружения');
+  process.exit(1);
+}
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
