@@ -19,10 +19,26 @@
 
 6. Railway автоматически перезапустит приложение после добавления переменных
 
-7. Получите URL вашего приложения:
-   - Перейдите в Settings → Domains
-   - Railway автоматически создаст домен вида: `your-app-name.railway.app`
-   - Или создайте свой кастомный домен
+7. Получите URL вашего приложения (один из способов):
+   
+   **Способ 1:** В интерфейсе Railway:
+   - Откройте ваш проект
+   - Нажмите на сервис (service) → вкладка "Settings" 
+   - Найдите раздел "Networking" или "Public Networking"
+   - Там будет показан публичный URL (например: `https://your-app.up.railway.app`)
+   - Если URL нет, нажмите "Generate Domain" или "Create Public Domain"
+   
+   **Способ 2:** Через Railway CLI:
+   ```bash
+   npm i -g @railway/cli
+   railway login
+   railway link  # подключите проект
+   railway domain  # покажет URL
+   ```
+   
+   **Способ 3:** В логах деплоя:
+   - Откройте последний деплой → View Logs
+   - Railway может показать URL в логах
 
 8. Настройте webhook для Telegram:
    ```bash
