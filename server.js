@@ -204,13 +204,23 @@ async function deleteSession(userId) {
 // Webhook endpoint для Telegram
 app.post('/webhook', async (req, res) => {
   try {
-    console.log('Received webhook update:', JSON.stringify(req.body, null, 2));
-    await bot.handleUpdate(req.body);
+    const update = req.body;
+    console.log('Received webhook update type:', update?.message?.text || update?.callback_query?.data || update?.update_id);
+    
+    // Обрабатываем обновление с таймаутом
+    await Promise.race([
+      bot.handleUpdate(update),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Update handling timeout')), 10000)
+      )
+    ]);
+    
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error handling update:', error);
     console.error('Error stack:', error.stack);
-    res.status(200).send('OK'); // Telegram требует 200 OK даже при ошибках
+    // Всегда возвращаем 200 OK, чтобы Telegram не считал webhook неработающим
+    res.status(200).send('OK');
   }
 });
 
@@ -232,7 +242,7 @@ app.get('/', (req, res) => {
 });
 
 // Запуск сервера
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}`);
   console.log(`ALLOWED_USER_ID: ${ALLOWED_USER_ID || 'NOT SET'}`);
@@ -240,8 +250,43 @@ app.listen(PORT, () => {
   console.log(`Health check: GET /health`);
 });
 
-// Обработка ошибок
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+// Обработка ошибок бота
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
+  console.error('Error stack:', err.stack);
+  // Пытаемся отправить сообщение об ошибке пользователю
+  if (ctx && ctx.reply) {
+    ctx.reply('Произошла ошибка. Попробуйте еще раз.').catch(e => {
+      console.error('Failed to send error message:', e);
+    });
+  }
+});
+
+// Обработка необработанных исключений
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // Не завершаем процесс, чтобы сервер продолжал работать
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
