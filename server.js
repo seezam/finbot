@@ -33,12 +33,12 @@ bot.use(async (ctx, next) => {
 
 bot.start((ctx) => {
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Создать счет', 'create_account')],
-    [Markup.button.callback('Просмотреть счета', 'list_accounts')],
-    [Markup.button.callback('Добавить транзакцию', 'add_transaction')],
-    [Markup.button.callback('Общий баланс', 'total_balance')]
+    [Markup.button.callback('➕ Создать счет', 'create_account')],
+    [Markup.button.callback('📋 Просмотреть счета', 'list_accounts')],
+    [Markup.button.callback('💰 Добавить транзакцию', 'add_transaction')],
+    [Markup.button.callback('💵 Общий баланс', 'total_balance')]
   ]);
-  ctx.reply('Выберите действие:', keyboard);
+  ctx.reply('💼 Выберите действие:', keyboard);
 });
 
 bot.action('create_account', async (ctx) => {
@@ -49,11 +49,14 @@ bot.action('create_account', async (ctx) => {
 bot.action('list_accounts', async (ctx) => {
   const accounts = await getAccounts();
   if (accounts.length === 0) {
-    ctx.editMessageText('Нет счетов.');
+    ctx.editMessageText('📭 Нет счетов.');
   } else {
-    const text = 'Ваши счета:\n' + accounts.map(acc => `${acc.name}: ${acc.balance}`).join('\n');
-    const keyboard = accounts.map(acc => [Markup.button.callback(`Редактировать ${acc.name}`, `edit_${acc.id}`)]);
-    keyboard.push([Markup.button.callback('Назад', 'back')]);
+    const text = '💼 Ваши счета:\n' + accounts.map(acc => {
+      const balanceEmoji = acc.balance >= 0 ? '💵' : '🔴';
+      return `${balanceEmoji} ${acc.name}: ${acc.balance}`;
+    }).join('\n');
+    const keyboard = accounts.map(acc => [Markup.button.callback(`✏️ Редактировать ${acc.name}`, `edit_${acc.id}`)]);
+    keyboard.push([Markup.button.callback('⬅️ Назад', 'back')]);
     ctx.editMessageText(text, Markup.inlineKeyboard(keyboard));
   }
 });
@@ -61,10 +64,10 @@ bot.action('list_accounts', async (ctx) => {
 bot.action('add_transaction', async (ctx) => {
   const accounts = await getAccounts();
   if (accounts.length === 0) {
-    ctx.editMessageText('Сначала создайте счет.');
+    ctx.editMessageText('⚠️ Сначала создайте счет.');
   } else {
-    const keyboard = accounts.map(acc => [Markup.button.callback(acc.name, `select_acc_${acc.id}`)]);
-    ctx.editMessageText('Выберите счет для транзакции:', Markup.inlineKeyboard(keyboard));
+    const keyboard = accounts.map(acc => [Markup.button.callback(`💳 ${acc.name}`, `select_acc_${acc.id}`)]);
+    ctx.editMessageText('💳 Выберите счет для транзакции:', Markup.inlineKeyboard(keyboard));
     await setSession(ctx.from.id, { action: 'add_transaction' });
   }
 });
@@ -72,7 +75,8 @@ bot.action('add_transaction', async (ctx) => {
 bot.action('total_balance', async (ctx) => {
   const accounts = await getAccounts();
   const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  ctx.editMessageText(`Общий баланс: ${total}`);
+  const emoji = total >= 0 ? '💵' : '🔴';
+  ctx.editMessageText(`${emoji} Общий баланс: ${total}`);
 });
 
 bot.action(/^edit_(.+)$/, async (ctx) => {
@@ -83,12 +87,12 @@ bot.action(/^edit_(.+)$/, async (ctx) => {
 
 bot.action('back', (ctx) => {
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Создать счет', 'create_account')],
-    [Markup.button.callback('Просмотреть счета', 'list_accounts')],
-    [Markup.button.callback('Добавить транзакцию', 'add_transaction')],
-    [Markup.button.callback('Общий баланс', 'total_balance')]
+    [Markup.button.callback('➕ Создать счет', 'create_account')],
+    [Markup.button.callback('📋 Просмотреть счета', 'list_accounts')],
+    [Markup.button.callback('💰 Добавить транзакцию', 'add_transaction')],
+    [Markup.button.callback('💵 Общий баланс', 'total_balance')]
   ]);
-  ctx.editMessageText('Выберите действие:', keyboard);
+  ctx.editMessageText('💼 Выберите действие:', keyboard);
 });
 
 bot.action(/^select_acc_(.+)$/, async (ctx) => {
@@ -105,12 +109,12 @@ bot.on('text', async (ctx) => {
 
   if (action === 'create_account') {
     await createAccount(text);
-    ctx.reply(`Счет '${text}' создан.`);
+    ctx.reply(`✅ Счет '${text}' создан.`);
     await deleteSession(ctx.from.id);
   } else if (action === 'edit_account') {
     const accId = session.editAccId;
     await editAccount(accId, text);
-    ctx.reply(`Счет переименован в '${text}'.`);
+    ctx.reply(`✏️ Счет переименован в '${text}'.`);
     await deleteSession(ctx.from.id);
   } else if (action === 'enter_transaction') {
     try {
@@ -119,10 +123,11 @@ bot.on('text', async (ctx) => {
       const desc = parts[1] || '';
       const accId = session.selectedAcc;
       await addTransaction(accId, amount, desc);
-      ctx.reply('Транзакция добавлена.');
+      const emoji = amount >= 0 ? '📈' : '📉';
+      ctx.reply(`${emoji} Транзакция добавлена.`);
       await deleteSession(ctx.from.id);
     } catch (e) {
-      ctx.reply('Неверный формат. Введите число и описание.');
+      ctx.reply('❌ Неверный формат. Введите число и описание.');
     }
   }
 });
