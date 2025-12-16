@@ -204,10 +204,12 @@ async function deleteSession(userId) {
 // Webhook endpoint для Telegram
 app.post('/webhook', async (req, res) => {
   try {
+    console.log('Received webhook update:', JSON.stringify(req.body, null, 2));
     await bot.handleUpdate(req.body);
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error handling update:', error);
+    console.error('Error stack:', error.stack);
     res.status(200).send('OK'); // Telegram требует 200 OK даже при ошибках
   }
 });
@@ -220,6 +222,10 @@ app.get('/health', (req, res) => {
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}`);
+  console.log(`ALLOWED_USER_ID: ${ALLOWED_USER_ID || 'NOT SET'}`);
+  console.log(`Webhook endpoint: POST /webhook`);
+  console.log(`Health check: GET /health`);
 });
 
 // Обработка ошибок
