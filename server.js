@@ -219,6 +219,18 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'FinBot Telegram Bot is running',
+    endpoints: {
+      webhook: 'POST /webhook',
+      health: 'GET /health'
+    }
+  });
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
