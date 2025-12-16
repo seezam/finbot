@@ -25,8 +25,13 @@ const bot = new Telegraf(BOT_TOKEN);
 
 // Middleware для проверки пользователя
 bot.use(async (ctx, next) => {
-  if (ctx.from && ctx.from.id !== ALLOWED_USER_ID) {
-    return;
+  if (ctx.from) {
+    console.log(`[BOT] User ${ctx.from.id} (${ctx.from.username || 'no username'}) trying to access`);
+    if (ctx.from.id !== ALLOWED_USER_ID) {
+      console.log(`[BOT] Access denied for user ${ctx.from.id}`);
+      return;
+    }
+    console.log(`[BOT] Access granted for user ${ctx.from.id}`);
   }
   await next();
 });
@@ -210,7 +215,19 @@ async function deleteSession(userId) {
 app.post('/webhook', async (req, res) => {
   try {
     const update = req.body;
-    console.log('Received webhook update type:', update?.message?.text || update?.callback_query?.data || update?.update_id);
+    const updateType = update?.message ? 'message' : 
+                      update?.callback_query ? 'callback_query' : 
+                      update?.edited_message ? 'edited_message' : 'unknown';
+    
+    console.log(`[WEBHOOK] Received update #${update?.update_id}, type: ${updateType}`);
+    
+    if (update?.message) {
+      console.log(`[WEBHOOK] Message from ${update.message.from?.id}: ${update.message.text || '(no text)'}`);
+    }
+    
+    if (update?.callback_query) {
+      console.log(`[WEBHOOK] Callback from ${update.callback_query.from?.id}: ${update.callback_query.data}`);
+    }
     
     // Обрабатываем обновление с таймаутом
     await Promise.race([
@@ -220,10 +237,12 @@ app.post('/webhook', async (req, res) => {
       )
     ]);
     
+    console.log(`[WEBHOOK] Update #${update?.update_id} processed successfully`);
     res.status(200).send('OK');
   } catch (error) {
-    console.error('Error handling update:', error);
-    console.error('Error stack:', error.stack);
+    console.error('[WEBHOOK] Error handling update:', error);
+    console.error('[WEBHOOK] Error stack:', error.stack);
+    console.error('[WEBHOOK] Update body:', JSON.stringify(req.body, null, 2));
     // Всегда возвращаем 200 OK, чтобы Telegram не считал webhook неработающим
     res.status(200).send('OK');
   }
