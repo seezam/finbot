@@ -107,13 +107,18 @@ bot.action('list_accounts', async (ctx) => {
     ]);
     ctx.editMessageText('📭 Нет счетов.', keyboard);
   } else {
-    const text = '💼 Ваши счета:\n' + accounts.map(acc => {
+    // Формируем список счетов со скрытыми балансами
+    const accountsText = accounts.map(acc => {
       const balanceEmoji = acc.balance >= 0 ? '💵' : '🔴';
-      return `${balanceEmoji} ${acc.name}: ${acc.balance}`;
+      const accountName = acc.name.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      const balanceStr = acc.balance.toString().replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      return `${balanceEmoji} ${accountName}: *||${balanceStr}||*`;
     }).join('\n');
+    
+    const text = `💼 Ваши счета:\n\n${accountsText}`;
     const keyboard = accounts.map(acc => [Markup.button.callback(`✏️ Редактировать ${acc.name}`, `edit_${acc.id}`)]);
     keyboard.push([Markup.button.callback('🏠 Меню', 'main_menu')]);
-    ctx.editMessageText(text, Markup.inlineKeyboard(keyboard));
+    ctx.editMessageText(text, { parse_mode: 'MarkdownV2', ...Markup.inlineKeyboard(keyboard) });
   }
 });
 
@@ -137,10 +142,12 @@ bot.action('total_balance', async (ctx) => {
   const accounts = await getAccounts();
   const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const emoji = total >= 0 ? '💵' : '🔴';
+  const totalStr = total.toString().replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  const balanceLabel = 'Общий баланс:'.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🏠 Меню', 'main_menu')]
   ]);
-  ctx.editMessageText(`${emoji} Общий баланс: ${total}`, keyboard);
+  ctx.editMessageText(`${emoji} ${balanceLabel} *||${totalStr}||*`, { parse_mode: 'MarkdownV2', ...keyboard });
 });
 
 bot.action(/^edit_(.+)$/, async (ctx) => {
@@ -228,6 +235,9 @@ bot.on('text', async (ctx) => {
       const balanceStr = accountAfter.balance.toString().replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
       const descStr = desc ? desc.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&') : '';
       
+      // Экранируем "Новый баланс:"
+      const balanceLabel = 'Новый баланс:'.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      
       let confirmationText = `✅ Транзакция добавлена\n\n`;
       confirmationText += `${typeEmoji} Тип: ${typeText}\n`;
       confirmationText += `💳 Счет: ${accountName}\n`;
@@ -235,7 +245,7 @@ bot.on('text', async (ctx) => {
       if (descStr) {
         confirmationText += `📝 Описание: ${descStr}\n`;
       }
-      confirmationText += `\n${balanceEmoji} Новый баланс: ${balanceStr}`;
+      confirmationText += `\n${balanceEmoji} ${balanceLabel} *||${balanceStr}||*`;
       
       // Кнопки для дальнейших действий
       const keyboard = Markup.inlineKeyboard([
