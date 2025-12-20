@@ -205,14 +205,49 @@ bot.on('text', async (ctx) => {
       const amount = parseFloat(parts[0]);
       const desc = parts[1] || '';
       const accId = session.selectedAcc;
+      
+      // Получаем информацию о счете до транзакции
+      const accountBefore = await getAccountById(accId);
+      
+      // Добавляем транзакцию
       await addTransaction(accId, amount, desc);
+      
+      // Получаем обновленную информацию о счете
+      const accountAfter = await getAccountById(accId);
+      
       await deleteSession(ctx.from.id);
-      const emoji = amount >= 0 ? '📈' : '📉';
-      const menuText = await getMenuText();
-      ctx.reply(`${emoji} Транзакция добавлена.`, { parse_mode: 'MarkdownV2', ...getMainMenu() });
+      
+      // Формируем сообщение подтверждения
+      const typeEmoji = amount >= 0 ? '📈' : '📉';
+      const typeText = amount >= 0 ? 'Доход' : 'Расход';
+      const balanceEmoji = accountAfter.balance >= 0 ? '💵' : '🔴';
+      
+      // Экранируем специальные символы для MarkdownV2
+      const accountName = accountAfter.name.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      const amountStr = Math.abs(amount).toString().replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      const balanceStr = accountAfter.balance.toString().replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+      const descStr = desc ? desc.replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&') : '';
+      
+      let confirmationText = `✅ Транзакция добавлена\n\n`;
+      confirmationText += `${typeEmoji} Тип: ${typeText}\n`;
+      confirmationText += `💳 Счет: ${accountName}\n`;
+      confirmationText += `💰 Сумма: ${amountStr}\n`;
+      if (descStr) {
+        confirmationText += `📝 Описание: ${descStr}\n`;
+      }
+      confirmationText += `\n${balanceEmoji} Новый баланс: ${balanceStr}`;
+      
+      // Кнопки для дальнейших действий
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('💰 Добавить еще транзакцию', 'add_transaction')],
+        [Markup.button.callback('📋 Просмотреть счета', 'list_accounts')],
+        [Markup.button.callback('🏠 Меню', 'main_menu')]
+      ]);
+      
+      ctx.reply(confirmationText, { parse_mode: 'MarkdownV2', ...keyboard });
     } catch (e) {
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+        [Markup.button.callback('🏠 Меню', 'main_menu')]
       ]);
       ctx.reply('❌ Неверный формат. Введите число и описание.\n\nПример: 1000 Покупка продуктов', keyboard);
     }
@@ -227,6 +262,11 @@ async function getAccounts() {
     const data = await loadData();
     return Object.entries(data.accounts).map(([id, acc]) => ({ id, ...acc }));
   }
+}
+
+async function getAccountById(accountId) {
+  const accounts = await getAccounts();
+  return accounts.find(acc => acc.id === accountId);
 }
 
 async function createAccount(name) {
