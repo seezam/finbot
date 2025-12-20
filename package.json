@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "telegraf": "^4.15.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "pg": "^8.11.3"
   },
   "keywords": [
     "telegram",
@@ -22,4 +23,6 @@
   "author": "",
   "license": "ISC"
 }
+
+
 

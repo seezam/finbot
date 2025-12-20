@@ -1,7 +1,6 @@
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
-const fs = require('fs').promises;
-const path = require('path');
+const db = require('./database');
 
 const app = express();
 app.use(express.json());
@@ -18,8 +17,14 @@ if (!ALLOWED_USER_ID) {
   console.error('Ошибка: ALLOWED_USER_ID не установлен в переменных окружения');
   process.exit(1);
 }
+
+if (!process.env.DATABASE_URL) {
+  console.error('Ошибка: DATABASE_URL не установлен в переменных окружения');
+  console.error('Создайте PostgreSQL базу данных на Railway и установите переменную DATABASE_URL');
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -181,7 +186,8 @@ bot.on('text', async (ctx) => {
     const accId = session.editAccId;
     await editAccount(accId, text);
     await deleteSession(ctx.from.id);
-    ctx.reply(`✏️ Счет переименован в '${text}'.`, getMainMenu());
+    const menuText = await getMenuText();
+    ctx.reply(`✏️ Счет переименован в '${text}'.`, { parse_mode: 'MarkdownV2', ...getMainMenu() });
   } else if (action === 'enter_transaction') {
     try {
       const parts = text.split(' ', 2);
@@ -191,7 +197,8 @@ bot.on('text', async (ctx) => {
       await addTransaction(accId, amount, desc);
       await deleteSession(ctx.from.id);
       const emoji = amount >= 0 ? '📈' : '📉';
-      ctx.reply(`${emoji} Транзакция добавлена.`, getMainMenu());
+      const menuText = await getMenuText();
+      ctx.reply(`${emoji} Транзакция добавлена.`, { parse_mode: 'MarkdownV2', ...getMainMenu() });
     } catch (e) {
       const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Главное меню', 'main_menu')]
@@ -201,87 +208,36 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// Функции для работы с данными
+// Функции для работы с данными (используют PostgreSQL)
 async function getAccounts() {
-  const data = await loadData();
-  return Object.entries(data.accounts).map(([id, acc]) => ({ id, ...acc }));
+  return await db.getAccounts();
 }
 
 async function createAccount(name) {
-  const data = await loadData();
   const id = Date.now().toString();
-  data.accounts[id] = { name, balance: 0 };
-  await saveData(data);
+  await db.createAccount(id, name);
+  return id;
 }
 
 async function editAccount(id, newName) {
-  const data = await loadData();
-  if (data.accounts[id]) {
-    data.accounts[id].name = newName;
-    await saveData(data);
-  }
+  await db.editAccount(id, newName);
 }
 
 async function addTransaction(accId, amount, desc) {
-  const data = await loadData();
-  const trans = { accountId: accId, amount, description: desc, date: new Date().toISOString() };
-  data.transactions.push(trans);
-  if (data.accounts[accId]) {
-    data.accounts[accId].balance += amount;
-  }
-  await saveData(data);
-}
-
-async function loadData() {
-  try {
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    // Убеждаемся, что структура данных правильная
-    if (!parsed.accounts) parsed.accounts = {};
-    if (!parsed.transactions) parsed.transactions = [];
-    if (!parsed.sessions) parsed.sessions = {};
-    console.log(`[DATA] Данные загружены: ${Object.keys(parsed.accounts).length} счетов, ${parsed.transactions.length} транзакций`);
-    return parsed;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log('[DATA] Файл данных не найден, создаю новый');
-      return { accounts: {}, transactions: [], sessions: {} };
-    }
-    console.error('[DATA] Ошибка загрузки данных:', error);
-    throw error;
-  }
-}
-
-async function saveData(data) {
-  try {
-    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-    console.log(`[DATA] Данные сохранены: ${Object.keys(data.accounts).length} счетов, ${data.transactions.length} транзакций`);
-  } catch (error) {
-    console.error('[DATA] Ошибка сохранения данных:', error);
-    throw error;
-  }
+  await db.addTransaction(accId, amount, desc);
 }
 
 async function getSession(userId) {
-  const data = await loadData();
-  return data.sessions && data.sessions[userId] ? data.sessions[userId] : null;
+  const sessionData = await db.getSession(userId);
+  return sessionData ? JSON.parse(sessionData) : null;
 }
 
 async function setSession(userId, session) {
-  const data = await loadData();
-  if (!data.sessions) {
-    data.sessions = {};
-  }
-  data.sessions[userId] = session;
-  await saveData(data);
+  await db.setSession(userId, session);
 }
 
 async function deleteSession(userId) {
-  const data = await loadData();
-  if (data.sessions && data.sessions[userId]) {
-    delete data.sessions[userId];
-    await saveData(data);
-  }
+  await db.deleteSession(userId);
 }
 
 // Webhook endpoint для Telegram
@@ -338,30 +294,56 @@ app.get('/', (req, res) => {
   });
 });
 
-// Запуск сервера
-const server = app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}`);
-  console.log(`ALLOWED_USER_ID: ${ALLOWED_USER_ID || 'NOT SET'}`);
-  console.log(`Webhook endpoint: POST /webhook`);
-  console.log(`Health check: GET /health`);
-});
+// Инициализация и запуск сервера
+let server;
+
+async function startServer() {
+  try {
+    // Инициализируем БД
+    await db.initDatabase();
+    console.log('[DB] Подключение к базе данных установлено');
+    
+    // Запускаем сервер
+    server = app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}`);
+      console.log(`ALLOWED_USER_ID: ${ALLOWED_USER_ID || 'NOT SET'}`);
+      console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+      console.log(`Webhook endpoint: POST /webhook`);
+      console.log(`Health check: GET /health`);
+    });
+  } catch (error) {
+    console.error('Ошибка запуска сервера:', error);
+    process.exit(1);
+  }
+}
+
+// Запускаем сервер
+startServer();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
+  if (server) {
+    server.close(async () => {
+      console.log('HTTP server closed');
+      await db.closeDatabase();
+      console.log('Database connection closed');
+      process.exit(0);
+    });
+  }
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
+  if (server) {
+    server.close(async () => {
+      console.log('HTTP server closed');
+      await db.closeDatabase();
+      console.log('Database connection closed');
+      process.exit(0);
+    });
+  }
 });
 
 // Обработка ошибок бота
