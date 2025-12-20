@@ -38,7 +38,8 @@ async function getMenuText() {
   const accounts = await getAccounts();
   const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const emoji = total >= 0 ? '💵' : '🔴';
-  return `💼 Меню ${emoji} *||${total}||*`;
+  // Используем HTML формат для spoiler (замазанный текст)
+  return `💼 Меню ${emoji} <b><spoiler>${total}</spoiler></b>`;
 }
 
 // Middleware для проверки пользователя
@@ -57,18 +58,18 @@ bot.use(async (ctx, next) => {
 // Команда /start и /menu для главного меню
 bot.start(async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+  ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
 });
 
 bot.command('menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+  ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
 });
 
 // Действие "Главное меню"
 bot.action('main_menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+  ctx.editMessageText(menuText, { parse_mode: 'HTML', ...getMainMenu() });
 });
 
 bot.action('create_account', async (ctx) => {
@@ -135,7 +136,7 @@ bot.action(/^edit_(.+)$/, async (ctx) => {
 
 bot.action('back', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+  ctx.editMessageText(menuText, { parse_mode: 'HTML', ...getMainMenu() });
 });
 
 bot.action(/^select_acc_(.+)$/, async (ctx) => {
@@ -154,7 +155,7 @@ bot.on('text', async (ctx) => {
   // Обработка команды "меню" или "главное меню"
   if (textLower === 'меню' || textLower === 'menu' || textLower === 'главное меню' || textLower === 'начать') {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+    ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
     return;
   }
   
@@ -163,7 +164,7 @@ bot.on('text', async (ctx) => {
   // Если нет активной сессии, показываем главное меню
   if (!session) {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
+    ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
     return;
   }
   
@@ -237,17 +238,26 @@ async function loadData() {
     if (!parsed.accounts) parsed.accounts = {};
     if (!parsed.transactions) parsed.transactions = [];
     if (!parsed.sessions) parsed.sessions = {};
+    console.log(`[DATA] Данные загружены: ${Object.keys(parsed.accounts).length} счетов, ${parsed.transactions.length} транзакций`);
     return parsed;
   } catch (error) {
     if (error.code === 'ENOENT') {
+      console.log('[DATA] Файл данных не найден, создаю новый');
       return { accounts: {}, transactions: [], sessions: {} };
     }
+    console.error('[DATA] Ошибка загрузки данных:', error);
     throw error;
   }
 }
 
 async function saveData(data) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  try {
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+    console.log(`[DATA] Данные сохранены: ${Object.keys(data.accounts).length} счетов, ${data.transactions.length} транзакций`);
+  } catch (error) {
+    console.error('[DATA] Ошибка сохранения данных:', error);
+    throw error;
+  }
 }
 
 async function getSession(userId) {
