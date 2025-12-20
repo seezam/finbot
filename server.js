@@ -136,10 +136,11 @@ bot.action(/^select_acc_(.+)$/, async (ctx) => {
 });
 
 bot.on('text', async (ctx) => {
-  const text = ctx.message.text.toLowerCase().trim();
+  const messageText = ctx.message.text;
+  const textLower = messageText.toLowerCase().trim();
   
   // Обработка команды "меню" или "главное меню"
-  if (text === 'меню' || text === 'menu' || text === 'главное меню' || text === 'начать') {
+  if (textLower === 'меню' || textLower === 'menu' || textLower === 'главное меню' || textLower === 'начать') {
     ctx.reply('💼 Главное меню:', getMainMenu());
     return;
   }
@@ -153,7 +154,7 @@ bot.on('text', async (ctx) => {
   }
   
   const action = session.action;
-  const text = ctx.message.text;
+  const text = messageText;
 
   if (action === 'create_account') {
     await createAccount(text);
