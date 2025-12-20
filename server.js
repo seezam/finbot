@@ -1,6 +1,17 @@
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
-const db = require('./database');
+const fs = require('fs').promises;
+const path = require('path');
+
+// Условная загрузка модуля БД
+let db = null;
+const USE_DATABASE = !!process.env.DATABASE_URL;
+if (USE_DATABASE) {
+  db = require('./database');
+} else {
+  console.warn('⚠️  DATABASE_URL не установлен - используется файловое хранилище');
+  console.warn('💡 Для надежного хранения создайте PostgreSQL на Railway');
+}
 
 const app = express();
 app.use(express.json());
@@ -18,11 +29,8 @@ if (!ALLOWED_USER_ID) {
   process.exit(1);
 }
 
-if (!process.env.DATABASE_URL) {
-  console.error('Ошибка: DATABASE_URL не установлен в переменных окружения');
-  console.error('Создайте PostgreSQL базу данных на Railway и установите переменную DATABASE_URL');
-  process.exit(1);
-}
+const PORT = process.env.PORT || 3000;
+const DATA_FILE = path.join(__dirname, 'data.json');
 
 const PORT = process.env.PORT || 3000;
 
@@ -212,36 +220,107 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// Функции для работы с данными (используют PostgreSQL)
+// Функции для работы с данными (используют PostgreSQL или файловое хранилище)
 async function getAccounts() {
-  return await db.getAccounts();
+  if (USE_DATABASE) {
+    return await db.getAccounts();
+  } else {
+    const data = await loadData();
+    return Object.entries(data.accounts).map(([id, acc]) => ({ id, ...acc }));
+  }
 }
 
 async function createAccount(name) {
   const id = Date.now().toString();
-  await db.createAccount(id, name);
+  if (USE_DATABASE) {
+    await db.createAccount(id, name);
+  } else {
+    const data = await loadData();
+    data.accounts[id] = { name, balance: 0 };
+    await saveData(data);
+  }
   return id;
 }
 
 async function editAccount(id, newName) {
-  await db.editAccount(id, newName);
+  if (USE_DATABASE) {
+    await db.editAccount(id, newName);
+  } else {
+    const data = await loadData();
+    if (data.accounts[id]) {
+      data.accounts[id].name = newName;
+      await saveData(data);
+    }
+  }
 }
 
 async function addTransaction(accId, amount, desc) {
-  await db.addTransaction(accId, amount, desc);
+  if (USE_DATABASE) {
+    await db.addTransaction(accId, amount, desc);
+  } else {
+    const data = await loadData();
+    const trans = { accountId: accId, amount, description: desc, date: new Date().toISOString() };
+    data.transactions.push(trans);
+    if (data.accounts[accId]) {
+      data.accounts[accId].balance += amount;
+    }
+    await saveData(data);
+  }
 }
 
 async function getSession(userId) {
-  const sessionData = await db.getSession(userId);
-  return sessionData ? JSON.parse(sessionData) : null;
+  if (USE_DATABASE) {
+    return await db.getSession(userId);
+  } else {
+    const data = await loadData();
+    return data.sessions && data.sessions[userId] ? data.sessions[userId] : null;
+  }
 }
 
 async function setSession(userId, session) {
-  await db.setSession(userId, session);
+  if (USE_DATABASE) {
+    await db.setSession(userId, session);
+  } else {
+    const data = await loadData();
+    if (!data.sessions) {
+      data.sessions = {};
+    }
+    data.sessions[userId] = session;
+    await saveData(data);
+  }
 }
 
 async function deleteSession(userId) {
-  await db.deleteSession(userId);
+  if (USE_DATABASE) {
+    await db.deleteSession(userId);
+  } else {
+    const data = await loadData();
+    if (data.sessions && data.sessions[userId]) {
+      delete data.sessions[userId];
+      await saveData(data);
+    }
+  }
+}
+
+// Функции для файлового хранилища (fallback)
+async function loadData() {
+  try {
+    const data = await fs.readFile(DATA_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    if (!parsed.accounts) parsed.accounts = {};
+    if (!parsed.transactions) parsed.transactions = [];
+    if (!parsed.sessions) parsed.sessions = {};
+    return parsed;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return { accounts: {}, transactions: [], sessions: {} };
+    }
+    throw error;
+  }
+}
+
+async function saveData(data) {
+  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // Webhook endpoint для Telegram
@@ -303,16 +382,20 @@ let server;
 
 async function startServer() {
   try {
-    // Инициализируем БД
-    await db.initDatabase();
-    console.log('[DB] Подключение к базе данных установлено');
+    // Инициализируем БД, если используется PostgreSQL
+    if (USE_DATABASE) {
+      await db.initDatabase();
+      console.log('[DB] Подключение к базе данных установлено');
+    } else {
+      console.log('[DATA] Используется файловое хранилище (data.json)');
+    }
     
     // Запускаем сервер
     server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}`);
       console.log(`ALLOWED_USER_ID: ${ALLOWED_USER_ID || 'NOT SET'}`);
-      console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+      console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? 'SET (PostgreSQL)' : 'NOT SET (файловое хранилище)'}`);
       console.log(`Webhook endpoint: POST /webhook`);
       console.log(`Health check: GET /health`);
     });
@@ -331,8 +414,10 @@ process.on('SIGTERM', async () => {
   if (server) {
     server.close(async () => {
       console.log('HTTP server closed');
-      await db.closeDatabase();
-      console.log('Database connection closed');
+      if (USE_DATABASE && db) {
+        await db.closeDatabase();
+        console.log('Database connection closed');
+      }
       process.exit(0);
     });
   }
@@ -343,8 +428,10 @@ process.on('SIGINT', async () => {
   if (server) {
     server.close(async () => {
       console.log('HTTP server closed');
-      await db.closeDatabase();
-      console.log('Database connection closed');
+      if (USE_DATABASE && db) {
+        await db.closeDatabase();
+        console.log('Database connection closed');
+      }
       process.exit(0);
     });
   }
