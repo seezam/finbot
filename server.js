@@ -38,8 +38,10 @@ async function getMenuText() {
   const accounts = await getAccounts();
   const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const emoji = total >= 0 ? '💵' : '🔴';
-  // Используем HTML формат для spoiler (замазанный текст)
-  return `💼 Меню ${emoji} <b><spoiler>${total}</spoiler></b>`;
+  // Используем MarkdownV2 формат для spoiler (замазанный текст)
+  // В MarkdownV2 нужно экранировать специальные символы
+  const totalStr = String(total).replace(/[.*_\[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  return `💼 Меню ${emoji} *||${totalStr}||*`;
 }
 
 // Middleware для проверки пользователя
@@ -58,18 +60,18 @@ bot.use(async (ctx, next) => {
 // Команда /start и /menu для главного меню
 bot.start(async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+  ctx.reply(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
 });
 
 bot.command('menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+  ctx.reply(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
 });
 
 // Действие "Главное меню"
 bot.action('main_menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+  ctx.editMessageText(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
 });
 
 bot.action('create_account', async (ctx) => {
@@ -136,7 +138,7 @@ bot.action(/^edit_(.+)$/, async (ctx) => {
 
 bot.action('back', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+  ctx.editMessageText(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
 });
 
 bot.action(/^select_acc_(.+)$/, async (ctx) => {
@@ -155,7 +157,7 @@ bot.on('text', async (ctx) => {
   // Обработка команды "меню" или "главное меню"
   if (textLower === 'меню' || textLower === 'menu' || textLower === 'главное меню' || textLower === 'начать') {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+    ctx.reply(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
     return;
   }
   
@@ -164,7 +166,7 @@ bot.on('text', async (ctx) => {
   // Если нет активной сессии, показываем главное меню
   if (!session) {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'HTML', ...getMainMenu() });
+    ctx.reply(menuText, { parse_mode: 'MarkdownV2', ...getMainMenu() });
     return;
   }
   
