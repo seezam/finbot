@@ -57,18 +57,18 @@ bot.use(async (ctx, next) => {
 // Команда /start и /menu для главного меню
 bot.start(async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
 });
 
 bot.command('menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
 });
 
 // Действие "Главное меню"
 bot.action('main_menu', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
 });
 
 bot.action('create_account', async (ctx) => {
@@ -135,7 +135,7 @@ bot.action(/^edit_(.+)$/, async (ctx) => {
 
 bot.action('back', async (ctx) => {
   const menuText = await getMenuText();
-  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
 });
 
 bot.action(/^select_acc_(.+)$/, async (ctx) => {
@@ -154,7 +154,7 @@ bot.on('text', async (ctx) => {
   // Обработка команды "меню" или "главное меню"
   if (textLower === 'меню' || textLower === 'menu' || textLower === 'главное меню' || textLower === 'начать') {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
     return;
   }
   
@@ -163,7 +163,7 @@ bot.on('text', async (ctx) => {
   // Если нет активной сессии, показываем главное меню
   if (!session) {
     const menuText = await getMenuText();
-    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
+    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu() });
     return;
   }
   
