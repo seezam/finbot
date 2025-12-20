@@ -30,7 +30,7 @@ if (!ALLOWED_USER_ID) {
 }
 
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+const DATA_FILE = USE_DATABASE ? null : path.join(__dirname, 'data.json');
 
 const PORT = process.env.PORT || 3000;
 
