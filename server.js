@@ -33,6 +33,14 @@ function getMainMenu() {
   ]);
 }
 
+// Функция для получения текста меню с балансом
+async function getMenuText() {
+  const accounts = await getAccounts();
+  const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+  const emoji = total >= 0 ? '💵' : '🔴';
+  return `💼 Меню ${emoji} *||${total}||*`;
+}
+
 // Middleware для проверки пользователя
 bot.use(async (ctx, next) => {
   if (ctx.from) {
@@ -47,22 +55,25 @@ bot.use(async (ctx, next) => {
 });
 
 // Команда /start и /menu для главного меню
-bot.start((ctx) => {
-  ctx.reply('💼 Выберите действие:', getMainMenu());
+bot.start(async (ctx) => {
+  const menuText = await getMenuText();
+  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
 });
 
-bot.command('menu', (ctx) => {
-  ctx.reply('💼 Главное меню:', getMainMenu());
+bot.command('menu', async (ctx) => {
+  const menuText = await getMenuText();
+  ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
 });
 
 // Действие "Главное меню"
-bot.action('main_menu', (ctx) => {
-  ctx.editMessageText('💼 Главное меню:', getMainMenu());
+bot.action('main_menu', async (ctx) => {
+  const menuText = await getMenuText();
+  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
 });
 
 bot.action('create_account', async (ctx) => {
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback('🏠 Меню', 'main_menu')]
   ]);
   ctx.editMessageText('✍️ Введите название нового счета:', keyboard);
   await setSession(ctx.from.id, { action: 'create_account' });
@@ -73,7 +84,7 @@ bot.action('list_accounts', async (ctx) => {
   if (accounts.length === 0) {
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('➕ Создать счет', 'create_account')],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+      [Markup.button.callback('🏠 Меню', 'main_menu')]
     ]);
     ctx.editMessageText('📭 Нет счетов.', keyboard);
   } else {
@@ -82,7 +93,7 @@ bot.action('list_accounts', async (ctx) => {
       return `${balanceEmoji} ${acc.name}: ${acc.balance}`;
     }).join('\n');
     const keyboard = accounts.map(acc => [Markup.button.callback(`✏️ Редактировать ${acc.name}`, `edit_${acc.id}`)]);
-    keyboard.push([Markup.button.callback('🏠 Главное меню', 'main_menu')]);
+    keyboard.push([Markup.button.callback('🏠 Меню', 'main_menu')]);
     ctx.editMessageText(text, Markup.inlineKeyboard(keyboard));
   }
 });
@@ -92,12 +103,12 @@ bot.action('add_transaction', async (ctx) => {
   if (accounts.length === 0) {
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('➕ Создать счет', 'create_account')],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+      [Markup.button.callback('🏠 Меню', 'main_menu')]
     ]);
     ctx.editMessageText('⚠️ Сначала создайте счет.', keyboard);
   } else {
     const keyboard = accounts.map(acc => [Markup.button.callback(`💳 ${acc.name}`, `select_acc_${acc.id}`)]);
-    keyboard.push([Markup.button.callback('🏠 Главное меню', 'main_menu')]);
+    keyboard.push([Markup.button.callback('🏠 Меню', 'main_menu')]);
     ctx.editMessageText('💳 Выберите счет для транзакции:', Markup.inlineKeyboard(keyboard));
     await setSession(ctx.from.id, { action: 'add_transaction' });
   }
@@ -108,7 +119,7 @@ bot.action('total_balance', async (ctx) => {
   const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const emoji = total >= 0 ? '💵' : '🔴';
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback('🏠 Меню', 'main_menu')]
   ]);
   ctx.editMessageText(`${emoji} Общий баланс: ${total}`, keyboard);
 });
@@ -117,20 +128,21 @@ bot.action(/^edit_(.+)$/, async (ctx) => {
   const accId = ctx.match[1];
   await setSession(ctx.from.id, { action: 'edit_account', editAccId: accId });
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback('🏠 Меню', 'main_menu')]
   ]);
   ctx.editMessageText('✍️ Введите новое название счета:', keyboard);
 });
 
-bot.action('back', (ctx) => {
-  ctx.editMessageText('💼 Главное меню:', getMainMenu());
+bot.action('back', async (ctx) => {
+  const menuText = await getMenuText();
+  ctx.editMessageText(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
 });
 
 bot.action(/^select_acc_(.+)$/, async (ctx) => {
   const accId = ctx.match[1];
   await setSession(ctx.from.id, { action: 'enter_transaction', selectedAcc: accId });
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback('🏠 Меню', 'main_menu')]
   ]);
   ctx.editMessageText('✍️ Введите сумму (положительная для прихода, отрицательная для расхода) и описание через пробел:', keyboard);
 });
@@ -141,7 +153,8 @@ bot.on('text', async (ctx) => {
   
   // Обработка команды "меню" или "главное меню"
   if (textLower === 'меню' || textLower === 'menu' || textLower === 'главное меню' || textLower === 'начать') {
-    ctx.reply('💼 Главное меню:', getMainMenu());
+    const menuText = await getMenuText();
+    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
     return;
   }
   
@@ -149,7 +162,8 @@ bot.on('text', async (ctx) => {
   
   // Если нет активной сессии, показываем главное меню
   if (!session) {
-    ctx.reply('💼 Главное меню:', getMainMenu());
+    const menuText = await getMenuText();
+    ctx.reply(menuText, { parse_mode: 'Markdown', ...getMainMenu().reply_markup });
     return;
   }
   
